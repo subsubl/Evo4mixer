@@ -1,0 +1,8 @@
+# Udev rules for Audient EVO 4/8 audio interfaces
+# Allows non-root access to USB control endpoints without detaching the audio driver
+
+# EVO 4 (Product ID: 0x0006)
+SUBSYSTEM=="usb", ATTR{idVendor}=="2708", ATTR{idProduct}=="0006", MODE="0666", GROUP="plugdev"
+
+# EVO 8 (Product ID: 0x0007)
+SUBSYSTEM=="usb", ATTR{idVendor}=="2708", ATTR{idProduct}=="0007", MODE="0666", GROUP="plugdev"
