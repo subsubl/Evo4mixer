@@ -74,7 +74,3 @@ Inspired by the precision of RME interfaces and the chaotic beauty of glitch art
 ## 🤝 Contributing
 
 This project is part of the **subsubl** creative ecosystem. Contributions are welcome! Whether it's adding support for more EVO features or refining the UI, feel free to open a PR.
-
----
-
-*Updated with fire by Prometheus 🔥*
