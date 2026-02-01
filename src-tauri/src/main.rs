@@ -43,10 +43,10 @@ fn set_master_volume(state: State<AppState>, volume: u8) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn set_mixer_level(state: State<AppState>, input_ch: u8, output_ch: u8, volume: u8) -> Result<(), String> {
+fn set_mixer_node(state: State<AppState>, node_index: u8, volume_db: f32) -> Result<(), String> {
     let guard = state.device.lock().unwrap();
     if let Some(dev) = guard.as_ref() {
-        dev.set_mixer_level(input_ch, output_ch, volume)
+        dev.set_mixer_node(node_index, volume_db)
     } else {
         Err("Device not initialized".to_string())
     }
@@ -63,7 +63,7 @@ fn main() {
             set_gain,
             toggle_phantom,
             set_master_volume,
-            set_mixer_level
+            set_mixer_node
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

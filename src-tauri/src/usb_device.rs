@@ -60,11 +60,20 @@ impl EvoDevice {
     }
 
     /// Set Mixer Routing/Matrix
-    pub fn set_mixer_level(&self, input_ch: u8, output_ch: u8, volume: u8) -> Result<(), String> {
-        let w_value = (0x01u16 << 8); 
+    /// Unit 60 is a 6x2 Mixer Unit (Mix 1)
+    pub fn set_mixer_node(&self, node_index: u8, volume_db: f32) -> Result<(), String> {
+        // UAC2 Mixer Control (CS=0x01)
+        // wValue: (CS << 8) | 0x00
+        // wIndex: (UnitID << 8) | Interface
+        let w_value = (0x01u16 << 8);
         let w_index = (60u16 << 8) | 0x00;
-        let data = [volume, volume, 0x00, 0x00]; 
+        
+        // UAC2 Volume: 16-bit signed, 1/256 dB units
+        let vol_raw = (volume_db * 256.0) as i16;
+        let data = vol_raw.to_le_bytes();
 
+        // For Mixer Units, the request often targets specific nodes or the whole matrix.
+        // Audient likely uses a proprietary mapping here since it's a 6x2 matrix.
         self.send_control_request(w_value, w_index, &data)
     }
 

@@ -25,12 +25,25 @@ struct VolumeArgs {
     volume: u8,
 }
 
+#[derive(Serialize, Deserialize)]
+struct MixerArgs {
+    node_index: u8,
+    volume_db: f32,
+}
+
 #[function_component(App)]
 fn app() -> Html {
     let set_gain = |channel: u8, gain: u8| {
         wasm_bindgen_futures::spawn_local(async move {
             let args = serde_wasm_bindgen::to_value(&GainArgs { channel, gain }).unwrap();
             invoke("set_gain", args).await;
+        });
+    };
+
+    let set_mixer_node = |node_index: u8, volume_db: f32| {
+        wasm_bindgen_futures::spawn_local(async move {
+            let args = serde_wasm_bindgen::to_value(&MixerArgs { node_index, volume_db }).unwrap();
+            invoke("set_mixer_node", args).await;
         });
     };
 
@@ -110,38 +123,49 @@ fn app() -> Html {
 
                 <!-- MASTER SECTION -->
                 <section class="space-y-6">
-                    <h2 class="text-xs font-bold uppercase tracking-widest text-neutral-500 border-l-2 border-neutral-700 pl-2">Monitoring</h2>
-                    <div class="bg-neutral-850 border border-neutral-800 p-6 rounded-sm shadow-xl">
-                        <div class="flex justify-between items-center mb-6">
-                            <span class="text-xs font-bold text-neutral-400">MAIN OUT</span>
-                            <span class="text-[10px] text-neutral-600 italic">STEREO</span>
+                    <h2 class="text-xs font-bold uppercase tracking-widest text-neutral-500 border-l-2 border-neutral-700 pl-2">Routing Matrix</h2>
+                    <div class="bg-neutral-850 border border-neutral-800 p-6 rounded-sm shadow-xl space-y-8">
+                        <div>
+                            <span class="text-[10px] text-neutral-400 block mb-2 uppercase">Monitor Mix</span>
+                            <input 
+                                type="range" 
+                                min="-127" max="0"
+                                class="w-full h-1 appearance-none bg-neutral-800 rounded-full accent-cyan-500"
+                                oninput={move |e: InputEvent| {
+                                    let input: web_sys::HtmlInputElement = e.target_unchecked_into();
+                                    set_mixer_node(0, input.value().parse().unwrap_or(0.0));
+                                }}
+                            />
                         </div>
                         
-                        <div class="space-y-8">
-                            <div class="h-48 bg-neutral-900/50 rounded-sm border border-neutral-800 flex p-1 gap-1">
-                                <div class="flex-1 bg-neutral-900 rounded-sm overflow-hidden flex flex-col justify-end">
-                                    <div class="h-[20%] bg-gradient-to-t from-blue-500 to-cyan-400 w-full"></div>
-                                </div>
-                                <div class="flex-1 bg-neutral-900 rounded-sm overflow-hidden flex flex-col justify-end">
-                                    <div class="h-[18%] bg-gradient-to-t from-blue-500 to-cyan-400 w-full"></div>
-                                </div>
+                        <div class="flex justify-between items-center pt-4 border-t border-neutral-800">
+                            <span class="text-xs font-bold text-neutral-400">MAIN OUT</span>
+                            <span class="text-[10px] text-neutral-600 italic uppercase">UAC2 Node 60</span>
+                        </div>
+                        
+                        <div class="h-32 bg-neutral-900/50 rounded-sm border border-neutral-800 flex p-1 gap-1">
+                            <div class="flex-1 bg-neutral-900 rounded-sm overflow-hidden flex flex-col justify-end">
+                                <div class="h-[10%] bg-gradient-to-t from-cyan-600 to-cyan-400 w-full opacity-50"></div>
                             </div>
+                            <div class="flex-1 bg-neutral-900 rounded-sm overflow-hidden flex flex-col justify-end">
+                                <div class="h-[10%] bg-gradient-to-t from-cyan-600 to-cyan-400 w-full opacity-50"></div>
+                            </div>
+                        </div>
 
-                            <div class="space-y-2">
-                                <input 
-                                    type="range" 
-                                    min="0" max="255"
-                                    class="w-full h-1 appearance-none bg-neutral-800 rounded-full accent-white"
-                                    oninput={move |e: InputEvent| {
-                                        let input: web_sys::HtmlInputElement = e.target_unchecked_into();
-                                        set_master_volume(input.value().parse().unwrap_or(0));
-                                    }}
-                                />
-                                <div class="flex justify-between text-[9px] text-neutral-600 uppercase">
-                                    <span>Mute</span>
-                                    <span>Master Vol</span>
-                                    <span>0dB</span>
-                                </div>
+                        <div class="space-y-2">
+                            <input 
+                                type="range" 
+                                min="0" max="255"
+                                class="w-full h-1 appearance-none bg-neutral-800 rounded-full accent-white"
+                                oninput={move |e: InputEvent| {
+                                    let input: web_sys::HtmlInputElement = e.target_unchecked_into();
+                                    set_master_volume(input.value().parse().unwrap_or(0));
+                                }}
+                            />
+                            <div class="flex justify-between text-[9px] text-neutral-600 uppercase">
+                                <span>Mute</span>
+                                <span>Master</span>
+                                <span>0dB</span>
                             </div>
                         </div>
                     </div>
