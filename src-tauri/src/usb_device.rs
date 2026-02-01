@@ -1,60 +1,65 @@
-use alsa::mixer::{Mixer, SelemId, SelemChannelId};
+use rusb::{DeviceHandle, GlobalContext};
 
 pub struct EvoDevice {
-    mixer: Mixer,
+    handle: DeviceHandle<GlobalContext>,
 }
 
-const CARD_NAME: &str = "EVO4";
-const MIXER_NAME: &str = "EVO4  Playback Volume"; // Note: double space in official name
+const VENDOR_ID: u16 = 0x2708;
+const PRODUCT_ID: u16 = 0x0006;
+
+// USB Unit IDs from lsusb
+const UNIT_ID_MIXER: u8 = 60;
+const UNIT_ID_INPUT_1: u8 = 11;
+const UNIT_ID_INPUT_2: u8 = 10;
+const UNIT_ID_EXTENSION_50: u8 = 50;
 
 impl EvoDevice {
     pub fn open() -> Result<Self, String> {
-        // Open the ALSA mixer for the EVO 4 card
-        let mixer = Mixer::new(CARD_NAME, false)
-            .map_err(|e| format!("Failed to open ALSA mixer: {}", e))?;
+        let handle = rusb::open_device_with_vid_pid(VENDOR_ID, PRODUCT_ID)
+            .ok_or_else(|| "EVO 4 device not found or permission denied".to_string())?;
         
-        Ok(EvoDevice { mixer })
+        Ok(EvoDevice { handle })
     }
-    
-    pub fn set_volume(&self, input: u8, output: u8, db: f32) -> Result<(), String> {
-        // Volume mapping:
-        // - Input range: -128 dB to 0 dB
-        // - ALSA range: 0 to 254 (0 = -127dB, 254 = 0dB)
+
+    /// Set volume for a specific unit (Feature Unit or Mixer Unit)
+    /// This is a generic UAC2 Volume Control request
+    pub fn set_unit_volume(&self, unit_id: u8, channel: u8, volume_db: f32) -> Result<(), String> {
+        // UAC2 Volume is 1/256 dB units, 16-bit signed
+        let vol_raw = (volume_db * 256.0) as i16;
+        let data = vol_raw.to_le_bytes();
+
+        // bRequest: 0x01 (CUR), 0x02 (RANGE), etc.
+        // bmRequestType: 0x21 (Host-to-Interface, Class-specific)
+        // wValue: Control Selector (CS) in high byte, Channel Number in low byte
+        // Control Selector for Volume is 0x02 in UAC2
+        let w_value = (0x02u16 << 8) | (channel as u16);
+        let w_index = ((unit_id as u16) << 8) | 0x00; // Interface 0 (Audio Control)
+
+        let timeout = std::time::Duration::from_millis(1000);
         
-        let mut vol_db_clamped = db;
-        if vol_db_clamped <= -100.0 {
-            vol_db_clamped = -127.0;
-        } else if vol_db_clamped > 0.0 {
-            vol_db_clamped = 0.0;
-        }
+        self.handle.write_control(0x21, 0x01, w_value, w_index, &data, timeout)
+            .map_err(|e| format!("USB Control Transfer failed: {}", e))?;
         
-        // Convert dB to ALSA scale (0-254)
-        let alsa_val = ((vol_db_clamped + 127.0) * (254.0 / 127.0)).round() as i64;
-        let alsa_val = alsa_val.clamp(0, 254);
+        Ok(())
+    }
+
+    /// Toggle Phantom Power (48V)
+    /// Likely via an Extension Unit or Feature Unit
+    pub fn set_phantom_power(&self, channel: u8, enabled: bool) -> Result<(), String> {
+        // This is a placeholder for the specific Request ID found in the Windows driver
+        // Often these are handled via Extension Units (e.g., Unit 58)
+        let unit_id = 58; 
+        let data = [if enabled { 1 } else { 0 }];
         
-        // Find the mixer element
-        let selem_id = SelemId::new(MIXER_NAME, 0);
-        let selem = self.mixer.find_selem(&selem_id)
-            .ok_or_else(|| format!("Mixer element '{}' not found", MIXER_NAME))?;
+        // CS might be different for phantom power
+        let w_value = (0x01u16 << 8) | (channel as u16);
+        let w_index = ((unit_id as u16) << 8) | 0x00;
+
+        let timeout = std::time::Duration::from_millis(1000);
         
-        // EVO 4 mixer matrix: The ALSA control has 4 values
-        // We need to determine which matrix position this input/output combination represents
-        // For now, set all channels to the same value for testing
-        // TODO: Properly map matrix positions to ALSA channels
-        
-        // The ALSA API doesn't expose direct indexing, so we'll use the channel enum
-        // Map our indices to ALSA channels (this is a simplified approach)
-        let channel = match (output * 8 + input) % 4 {
-            0 => SelemChannelId::FrontLeft,
-            1 => SelemChannelId::FrontRight,
-            2 => SelemChannelId::FrontCenter,
-            3 => SelemChannelId::RearLeft,
-            _ => SelemChannelId::FrontLeft,
-        };
-        
-        selem.set_playback_volume(channel, alsa_val)
-            .map_err(|e| format!("Failed to set volume: {}", e))?;
-        
+        self.handle.write_control(0x21, 0x01, w_value, w_index, &data, timeout)
+            .map_err(|e| format!("Failed to toggle Phantom Power: {}", e))?;
+            
         Ok(())
     }
 }
