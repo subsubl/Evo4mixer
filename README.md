@@ -6,33 +6,23 @@
 
 **Evo4mixer** is a high-performance, low-latency Linux mixer specifically engineered for the **Audient EVO 4** audio interface. 
 
-This project aims to provide a full-featured alternative to the Audient Windows/macOS dashboard, moving beyond basic ALSA controls to direct USB/HID manipulation for features like Smartgain, Phantom Power, and the internal Matrix Mixer.
-
 ---
 
-## ⚡ Recent Progress: The "Ghidra" Update
+## ⚡ Recent Progress: The "Deep Dive" Protocol Update
 
-- 🦀 **Pure Rust Stack**: Migrated the entire project to **Yew** (frontend) and **Tauri** (backend). No more JavaScript/TypeScript overhead.
-- 🛠️ **Direct USB Control**: Transitioned from ALSA-only volume control to a raw `rusb` implementation targeting specific UAC2 Units (Feature Units 10/11, Mixer Unit 60, and Extension Units 50-59).
-- 🔍 **Reverse Engineering**: Currently leveraging Ghidra analysis of the Windows driver to map proprietary Audient control requests for:
-  - **Phantom Power (48V)** toggle.
-  - **Smartgain** trigger and status.
-  - **Input Link** (Stereo/Mono).
-  - **Internal Mixer Matrix** routing.
+We have successfully reverse-engineered the core control protocol of the EVO 4 by analyzing both the Windows driver (Thesycon) and community-driven USB captures. 
 
----
+### Key Discoveries:
+- **Unit 58 (0x3A)**: Target for Input-side controls (Mic Gain, Phantom Power).
+- **Unit 59 (0x3B)**: Target for Output-side controls (Headphone/Master Volume).
+- **Control Requests**: Uses UAC2 Class-Specific `SET_CUR` requests (0x21, 0x01) with 4-byte payloads.
+- **Phantom Power (48V)**: Controlled via `wValue` 0x00XX (where XX is channel) on Unit 58.
+- **Mic Gain**: Controlled via `wValue` 0x01XX on Unit 58, range 0x00 to 0x31.
 
-## ✨ Features
-
-- 🎚️ **Direct USB Manipulation**: Bypassing ALSA for proprietary hardware features.
-- 🎨 **RME-Inspired UI**: A professional, high-density interface built with pure Rust (Yew).
-- ⚡ **Zero Latency**: Sub-millisecond control response times.
-- 🐧 **Linux Native**: Deep integration with udev for device permissions.
-
-## 🛠️ Tech Stack
-
-- **Frontend**: [Yew](https://yew.rs/) (Rust/Wasm).
-- **Backend**: [Tauri v2](https://tauri.app/) + [rusb](https://docs.rs/rusb/) for low-level USB.
+### Features Implemented:
+- 🦀 **Pure Rust Stack**: Yew frontend + Tauri v2 backend.
+- 🛠️ **Direct USB Backend**: `rusb` implementation for raw control transfers, bypassing ALSA limitations.
+- ⚡ **Command API**: Exposes `set_gain`, `toggle_phantom`, and `set_master_volume` to the frontend.
 
 ---
 
@@ -42,7 +32,7 @@ This project aims to provide a full-featured alternative to the Audient Windows/
 
 - [Tauri v2 Setup](https://tauri.app/v2/guides/getting-started/setup/linux/)
 - [Trunk](https://trunkrs.dev/) (`cargo install --locked trunk`)
-- [libusb](https://libusb.info/) development headers.
+- `libusb-1.0-0-dev` (Linux).
 
 ### Installation
 
