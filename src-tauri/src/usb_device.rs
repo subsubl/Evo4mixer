@@ -59,6 +59,15 @@ impl EvoDevice {
         self.send_control_request(w_value, w_index, &data)
     }
 
+    /// Set Mixer Routing/Matrix
+    pub fn set_mixer_level(&self, input_ch: u8, output_ch: u8, volume: u8) -> Result<(), String> {
+        let w_value = (0x01u16 << 8); 
+        let w_index = (60u16 << 8) | 0x00;
+        let data = [volume, volume, 0x00, 0x00]; 
+
+        self.send_control_request(w_value, w_index, &data)
+    }
+
     fn send_control_request(&self, w_value: u16, w_index: u16, data: &[u8]) -> Result<(), String> {
         let timeout = std::time::Duration::from_millis(1000);
         

@@ -42,6 +42,16 @@ fn set_master_volume(state: State<AppState>, volume: u8) -> Result<(), String> {
     }
 }
 
+#[tauri::command]
+fn set_mixer_level(state: State<AppState>, input_ch: u8, output_ch: u8, volume: u8) -> Result<(), String> {
+    let guard = state.device.lock().unwrap();
+    if let Some(dev) = guard.as_ref() {
+        dev.set_mixer_level(input_ch, output_ch, volume)
+    } else {
+        Err("Device not initialized".to_string())
+    }
+}
+
 fn main() {
     let device = EvoDevice::open().ok();
     
@@ -52,7 +62,8 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             set_gain,
             toggle_phantom,
-            set_master_volume
+            set_master_volume,
+            set_mixer_level
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
